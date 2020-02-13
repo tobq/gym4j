@@ -10,6 +10,10 @@ public class DiscreteDiscreteEnvironment extends Environment<Discrete, Discrete>
         super(envId, gym);
     }
 
+    public DiscreteDiscreteEnvironment(String envId, boolean render, Gym gym) {
+        super(envId, render, gym);
+    }
+
     @Override
     public DiscreteSpace getActionSpace() {
         return (DiscreteSpace) super.getActionSpace();

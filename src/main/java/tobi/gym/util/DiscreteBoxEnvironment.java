@@ -7,6 +7,10 @@ public class DiscreteBoxEnvironment extends Environment<Discrete, Box> {
         super(envId, gym);
     }
 
+    public DiscreteBoxEnvironment(String envId, boolean render, Gym gym) {
+        super(envId, render, gym);
+    }
+
     @Override
     public BoxSpace getActionSpace() {
         return (BoxSpace) super.getActionSpace();
