@@ -63,7 +63,7 @@ public class Utils {
         URL location = Environment.class.getProtectionDomain().getCodeSource().getLocation();
         Path path = Paths.get(location.toURI());
         if (location.getPath().endsWith(".jar")) {
-            try (FileSystem fs = FileSystems.newFileSystem(path, null)) {
+            try (FileSystem fs = FileSystems.newFileSystem(path, (ClassLoader) null)) {
                 Path src = fs.getPath(GYM_PYTHON_FOLDER);
                 final Path tempDir = Files.createTempDirectory("tobi.gym.gympy-");
                 copyJarDir(src, src, tempDir);
