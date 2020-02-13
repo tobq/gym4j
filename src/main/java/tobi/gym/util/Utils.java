@@ -55,7 +55,7 @@ public class Utils {
         return ((response[0] & 0xFF) << 24) + ((response[1] & 0xFF) << 16) + ((response[2] & 0xFF) << 8) + (response[3] & 0xFF);
     }
 
-    private static final String GYM_PYTHON_FOLDER = "/tobi/gym/gym-py/";
+    private static final String GYM_PYTHON_FOLDER = "/tobi/gym/gympy/";
     private static final String SHELL_PY_REL_PATH = "shell.py";
     static final String PYTHON_SHELL_PATH = GYM_PYTHON_FOLDER + SHELL_PY_REL_PATH;
 
@@ -67,9 +67,54 @@ public class Utils {
         if (location.getPath().endsWith(".jar")) {
             try (FileSystem fs = FileSystems.newFileSystem(path, null)) {
                 Path src = fs.getPath(GYM_PYTHON_FOLDER);
-                final Path tempDir = Files.createTempDirectory("tobi.gym-");
-                Files.walkFileTree(src, new Installer(tempDir, src));
+                final Path tempDir = Files.createTempDirectory("tobi.gym.gympy-");
+                Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
+                    private Path resolve(Path path) {
+                        return tempDir.resolve(src.relativize(path).toString());
+                    }
+
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                        System.out.println("dir = " + dir);
+                        Path dst = resolve(dir);
+                        Files.createDirectories(dst);
+                        return super.preVisitDirectory(dir, attrs);
+                    }
+
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        System.out.println("file = " + file);
+                        Path dst = resolve(file);
+                        System.out.println("dst = " + dst);
+
+                        Files.copy(Environment.class.getResourceAsStream(file.toString()), dst, StandardCopyOption.REPLACE_EXISTING);
+                        return super.visitFile(file, attrs);
+                    }
+                });
                 tempDir.toFile().deleteOnExit();
+                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                    try {
+                        Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+                            @Override
+                            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                                Files.delete(file);
+                                return FileVisitResult.CONTINUE;
+                            }
+
+                            @Override
+                            public FileVisitResult postVisitDirectory(Path dir, IOException e) throws IOException {
+                                if (e == null) {
+                                    Files.delete(dir);
+                                    return FileVisitResult.CONTINUE;
+                                }
+                                // directory iteration failed
+                                throw e;
+                            }
+                        });
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }));
                 return tempDir.resolve(SHELL_PY_REL_PATH).toString();
             }
         } else {
@@ -78,32 +123,5 @@ public class Utils {
     }
 
 
-    public static final class Installer extends SimpleFileVisitor<Path> {
-
-        private final Path target, source;
-
-        private Installer(Path dst, Path src) {
-            target = dst;
-            source = src;
-        }
-
-        private Path resolve(Path path) {
-            return target.resolve(source.relativize(path).toString());
-        }
-
-        @Override
-        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-            Path dst = resolve(dir);
-            Files.createDirectories(dst);
-            return super.preVisitDirectory(dir, attrs);
-        }
-
-        @Override
-        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-            Path dst = resolve(file);
-            Files.copy(Files.newInputStream(file), dst, StandardCopyOption.REPLACE_EXISTING);
-            return super.visitFile(file, attrs);
-        }
-    }
 }
 

@@ -1,3 +1,3 @@
 [submodule "gym4j-py"]
-	path = src/main/resources/tobi/gym/gym-py
+	path = src/main/resources/tobi/gym/gympy
 	url = https://github.com/tobq/gym4j-py.git
