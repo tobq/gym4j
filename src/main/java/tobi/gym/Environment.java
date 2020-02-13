@@ -1,54 +1,17 @@
 package tobi.gym;
 
-import tobi.gym.util.BoxBoxEnvironment;
 import tobi.gym.util.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.*;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Objects;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
 
-public class Environment<O extends Action, A extends Action> implements AutoCloseable {
+public class Environment<O extends SpaceInstance, A extends SpaceInstance> implements AutoCloseable {
     private final int id;
     protected final Gym gym;
     private Space<A> actionSpace;
     private Space<O> observationSpace;
-
-    public static void main(String[] args) throws InterruptedException, IOException, URISyntaxException {
-        try (Gym gym = new Gym()) {
-            try (BoxBoxEnvironment env = new BoxBoxEnvironment("BipedalWalker-v2", gym)) {
-//            try (GymEnvironment<Box, Box> env = new GymEnvironment<Box,Box>("BipedalWalker-v2")) {
-//            try (BoxBoxEnvironment env = Gym.makeBoxBox("BipedalWalker-v2", gym)) {
-                final BoxSpace actionSpace = (BoxSpace) env.getActionSpace();
-                final BoxSpace observationSpace = (BoxSpace) env.getObservationSpace();
-                final Box initialState = env.reset();
-                for (int i = 0; i < 1; i++) {
-                    final ActionResult<Box> result = env.step(new Box(1, 1, 1, 1));
-                    final Box observation = result.getObservation();
-                    final double reward = result.getReward();
-                    final boolean done = result.isDone();
-                }
-            }
-        }
-//        final Environment<Box, Box> env = new Environment<>("BipedalWalker-v2", true);
-//        System.out.println("env.reset() = " + env.reset());
-//
-//        for (int i = 0; i < 300; i++) {
-//            System.out.println("env.step(new Box(1,1,1,1)) = " + env.step(new Box(1, 1, 1, 1)));
-//        }
-//
-//        env.close();
-    }
-
 
     private JSONObject makeEvent() {
         return new JSONObject().put("id", id);
@@ -113,7 +76,7 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
 
     private O extractObservation(JSONObject response) {
         Object result = response.get(ActionResult.KEY_OBSERVATION);
-        Action res;
+        SpaceInstance res;
         if (result instanceof JSONArray) res = Utils.parseBox((JSONArray) result);
         else if (result instanceof Integer) res = new Discrete((Integer) result);
         else throw new IllegalArgumentException("Unrecognised observation: " + result);

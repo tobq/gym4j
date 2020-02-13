@@ -1,9 +1,6 @@
 package tobi.gym;
 
-import tobi.gym.util.BoxBoxEnvironment;
-import tobi.gym.util.BoxDiscreteEnvironment;
-import tobi.gym.util.DiscreteDiscreteEnvironment;
-import tobi.gym.util.Utils;
+import tobi.gym.util.*;
 
 import java.io.*;
 import java.net.URISyntaxException;

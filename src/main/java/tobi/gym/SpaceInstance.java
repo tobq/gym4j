@@ -1,5 +1,5 @@
 package tobi.gym;
 
-interface Action {
+public interface SpaceInstance {
     Object format();
 }

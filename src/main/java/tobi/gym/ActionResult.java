@@ -1,6 +1,6 @@
 package tobi.gym;
 
-public class ActionResult<O extends Action> {
+public class ActionResult<O extends SpaceInstance> {
     public static final String KEY_OBSERVATION = "observation";
     public static final String KEY_REWARD = "reward";
     public static final String KEY_DONE = "done";

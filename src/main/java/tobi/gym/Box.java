@@ -4,7 +4,7 @@ import org.json.JSONArray;
 
 import java.util.Arrays;
 
-public class Box implements Action {
+public class Box implements SpaceInstance {
     private final double[] values;
 //    private final double[] dimensions;
 

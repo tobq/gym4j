@@ -1,6 +1,6 @@
 package tobi.gym;
 
-public class Discrete implements Action {
+public class Discrete implements SpaceInstance {
     private final int i;
 
     public Discrete(int i) {
