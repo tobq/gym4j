@@ -3,14 +3,15 @@ package tobi.gym.util;
 import tobi.gym.Box;
 import tobi.gym.BoxSpace;
 import tobi.gym.Environment;
+import tobi.gym.Gym;
 
 public class BoxBoxEnvironment extends Environment<Box, Box> {
-    public BoxBoxEnvironment(String envId) {
-        super(envId);
+    public BoxBoxEnvironment(String envId, Gym gym) {
+        super(envId, gym);
     }
 
-    public BoxBoxEnvironment(String envId, boolean render) {
-        super(envId, render);
+    public BoxBoxEnvironment(String envId, boolean render, Gym gym) {
+        super(envId, render, gym);
     }
 
     @Override

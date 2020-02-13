@@ -1,5 +1,6 @@
 package tobi.gym;
 
+import tobi.gym.util.BoxBoxEnvironment;
 import tobi.gym.util.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -17,18 +18,27 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class Environment<O extends Action, A extends Action> implements AutoCloseable {
-    private static final int DEFAULT_BUFFER_SIZE = 8192;
-    private static BlockingQueue<Message> messageQueue = new LinkedBlockingQueue<>();
-    private static HashMap<Integer, Callback<byte[]>> messageCallbacks = new HashMap<>();
-    private static boolean initialised = false;
-
-
     private final int id;
+    protected final Gym gym;
     private Space<A> actionSpace;
     private Space<O> observationSpace;
 
     public static void main(String[] args) throws InterruptedException, IOException, URISyntaxException {
-        Environment.init();
+        try (Gym gym = new Gym()) {
+            try (BoxBoxEnvironment env = new BoxBoxEnvironment("BipedalWalker-v2", gym)) {
+//            try (GymEnvironment<Box, Box> env = new GymEnvironment<Box,Box>("BipedalWalker-v2")) {
+//            try (BoxBoxEnvironment env = Gym.makeBoxBox("BipedalWalker-v2", gym)) {
+                final BoxSpace actionSpace = (BoxSpace) env.getActionSpace();
+                final BoxSpace observationSpace = (BoxSpace) env.getObservationSpace();
+                final Box initialState = env.reset();
+                for (int i = 0; i < 1; i++) {
+                    final ActionResult<Box> result = env.step(new Box(1, 1, 1, 1));
+                    final Box observation = result.getObservation();
+                    final double reward = result.getReward();
+                    final boolean done = result.isDone();
+                }
+            }
+        }
 //        final Environment<Box, Box> env = new Environment<>("BipedalWalker-v2", true);
 //        System.out.println("env.reset() = " + env.reset());
 //
@@ -39,93 +49,21 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
 //        env.close();
     }
 
-    public synchronized static void init() throws IOException, InterruptedException, URISyntaxException {
-        if (initialised) return;
-
-        final int THREAD_COUNT = 3;
-//        final Thread[] threads = new Thread[THREAD_COUNT];
-        final CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
-//        final Path tempFile = Files.createTempFile("tobi.gym-", Long.toString(System.currentTimeMillis())).toAbsolutePath();
-//
-//        try (InputStream resourceStream = Environment.class.getResourceAsStream("/tobi/gym/shell.py")) {
-//            Files.copy(resourceStream, tempFile);
-//        }
-//        System.out.println("tempFile = " + tempFile);
-        ProcessBuilder builder = new ProcessBuilder("python", Utils.installGym());
-        Process process = builder.start();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(process::destroyForcibly));
-
-        // RESPONSE READING THREAD
-        /*threads[0] = */
-        Utils.startLoggedThread(() -> {
-            final DataInputStream reader = new DataInputStream(process.getInputStream());
-            latch.countDown();
-            while (true) {
-                int mid = reader.readInt();
-//                System.out.println("RESPONSE: mid = " + mid);
-                int length = reader.readInt();
-//                System.out.println("RESPONSE: length = " + length);
-                final byte[] response = new byte[length];
-//                System.out.println("RESPONSE = " + Arrays.toString(response));
-                reader.readFully(response);
-                final Callback<byte[]> callback = messageCallbacks.get(mid);
-                messageCallbacks.remove(mid);
-                Utils.startLoggedThread(() -> callback.call(response));
-            }
-        });
-
-        // MESSAGE SENDING THREAD
-        /*threads[1] = */
-        Utils.startLoggedThread(() -> {
-            latch.countDown();
-
-            final DataOutputStream writer = new DataOutputStream(process.getOutputStream());
-            int messageCount = 0;
-            while (true) {
-                final Message message = messageQueue.take();
-                final byte[] msg = message.getMessage();
-                final int mid = messageCount++;
-                if (message instanceof CallbackMessage)
-                    messageCallbacks.put(mid, ((CallbackMessage) message).getCallback());
-                writer.writeInt(mid);
-                writer.writeInt(msg.length);
-                writer.write(msg);
-//                System.out.println("SENDING[" + mid + "]: " + Arrays.toString(msg));
-                writer.flush();
-            }
-        });
-
-        // ERROR READING THREAD
-        /*threads[2] = */
-        Utils.startLoggedThread(() -> {
-            latch.countDown();
-
-            final BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            String line;
-            while (true) {
-                while ((line = errorReader.readLine()) != null) System.out.println(line);
-            }
-        });
-
-        latch.await();
-        initialised = true;
-    }
 
     private JSONObject makeEvent() {
         return new JSONObject().put("id", id);
     }
 
-    public Environment(String envId) {
-        this(envId, false);
+    public Environment(String envId, Gym gym) {
+        this(envId, false, gym);
     }
 
-    public Environment(String envId, boolean render) {
+    public Environment(String envId, boolean render, Gym gym) {
+        this.gym = gym;
         JSONObject event = new JSONObject()
                 .put("type", "make")
                 .put("render", render)
                 .put("envId", envId);
-
         final byte[] response = sendWait(event.toString());
 //        System.out.println("response = " + Arrays.toString(response));
         id = Utils.parseInt(response);
@@ -143,21 +81,19 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
         return future.join();
     }
 
-    private static void send(String message, Callback<byte[]> cb) {
-        assertInitialised();
-        messageQueue.add(new CallbackMessage(message, cb));
+    private void send(String message, Callback<byte[]> cb) {
+        gym.submit(new CallbackMessage(message, cb));
     }
 
-    private static void send(String message) {
-        assertInitialised();
-        messageQueue.add(new Message(message));
+    private void send(String message) {
+        gym.submit(new Message(message));
     }
 
-    private static void assertInitialised() {
-        if (!initialised) throw new RuntimeException("Environment not yet initialised. Call Environment#init()");
-    }
+//    private static void assertInitialised() {
+//        if (!initialised) throw new RuntimeException("Environment not yet initialised. Call Environment#init()");
+//    }
 
-    private static void send(JSONObject event) {
+    private void send(JSONObject event) {
         send(event.toString());
     }
 
@@ -201,7 +137,7 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
 
     //
     @Override
-    public void close() {
+    public void close() throws InterruptedException {
         send(makeEvent().put("type", "close"));
     }
 

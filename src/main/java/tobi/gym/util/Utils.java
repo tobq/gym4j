@@ -4,6 +4,7 @@ import tobi.gym.Box;
 import org.json.JSONArray;
 import tobi.gym.Environment;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -33,10 +34,10 @@ public class Utils {
         return box;
     }
 
-    public static Thread startLoggedThread(CaughtRunnable x) {
+    public static Thread startLoggedThread(CaughtRunnable job) {
         final Thread thread = new Thread(() -> {
             try {
-                x.run();
+                job.run();
             } catch (Throwable e) {
                 e.printStackTrace();
             }
@@ -94,7 +95,7 @@ public class Utils {
                 return tempDir.resolve(SHELL_PY_REL_PATH).toString();
             }
         } else {
-            return Environment.class.getResource(PYTHON_SHELL_PATH).getPath();
+            return new File(Environment.class.getResource(PYTHON_SHELL_PATH).getFile()).toString();
         }
     }
 

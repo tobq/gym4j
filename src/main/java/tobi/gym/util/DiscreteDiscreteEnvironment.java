@@ -3,10 +3,11 @@ package tobi.gym.util;
 import tobi.gym.Discrete;
 import tobi.gym.DiscreteSpace;
 import tobi.gym.Environment;
+import tobi.gym.Gym;
 
 public class DiscreteDiscreteEnvironment extends Environment<Discrete, Discrete> {
-    public DiscreteDiscreteEnvironment(String envId) {
-        super(envId);
+    public DiscreteDiscreteEnvironment(String envId, Gym gym) {
+        super(envId, gym);
     }
 
     @Override
