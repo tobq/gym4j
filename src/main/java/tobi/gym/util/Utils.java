@@ -62,36 +62,11 @@ public class Utils {
     public static String installGym() throws URISyntaxException, IOException {
         URL location = Environment.class.getProtectionDomain().getCodeSource().getLocation();
         Path path = Paths.get(location.toURI());
-        System.out.println("RUNNING FROM:" + location);
-        System.out.println("Environment.class.getResource(PYTHON_SHELL_PATH) = " + Environment.class.getResource(PYTHON_SHELL_PATH));
         if (location.getPath().endsWith(".jar")) {
             try (FileSystem fs = FileSystems.newFileSystem(path, null)) {
                 Path src = fs.getPath(GYM_PYTHON_FOLDER);
                 final Path tempDir = Files.createTempDirectory("tobi.gym.gympy-");
-                Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
-                    private Path resolve(Path path) {
-                        return tempDir.resolve(src.relativize(path).toString());
-                    }
-
-                    @Override
-                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                        System.out.println("dir = " + dir);
-                        Path dst = resolve(dir);
-                        Files.createDirectories(dst);
-                        return super.preVisitDirectory(dir, attrs);
-                    }
-
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        System.out.println("file = " + file);
-                        Path dst = resolve(file);
-                        System.out.println("dst = " + dst);
-
-                        Files.copy(Environment.class.getResourceAsStream(file.toString()), dst, StandardCopyOption.REPLACE_EXISTING);
-                        return super.visitFile(file, attrs);
-                    }
-                });
-                tempDir.toFile().deleteOnExit();
+                copyJarDir(src, src, tempDir);
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                     try {
                         Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
@@ -115,11 +90,29 @@ public class Utils {
                         e.printStackTrace();
                     }
                 }));
+
                 return tempDir.resolve(SHELL_PY_REL_PATH).toString();
             }
         } else {
             return Environment.class.getResource(PYTHON_SHELL_PATH).getPath();
         }
+    }
+
+    private static void copyJarDir(Path jarDir, Path pyroot, Path outDir) throws IOException {
+        Files.list(jarDir).forEach(file -> {
+            final String relpathFixed = pyroot.relativize(file).toString().replaceAll("^\\.\\.\\/gympy/", "");
+            final Path dest = outDir.resolve(relpathFixed);
+            try {
+                if (Files.isDirectory(file)) {
+                    Files.createDirectory(dest);
+                    copyJarDir(file, pyroot, outDir);
+                } else if (Files.isRegularFile(file)) {
+                    Files.copy(Environment.class.getResourceAsStream(file.toString()), dest);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
 
