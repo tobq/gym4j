@@ -26,6 +26,7 @@ public class Environment<O extends SpaceInstance, A extends SpaceInstance> imple
         JSONObject event = new JSONObject()
                 .put("type", "make")
                 .put("render", render)
+//                .put("seed", seed) TODO: IMPLEMENT SEEDING
                 .put("envId", envId);
         final byte[] response = sendWait(event.toString());
 //        System.out.println("response = " + Arrays.toString(response));
@@ -64,7 +65,7 @@ public class Environment<O extends SpaceInstance, A extends SpaceInstance> imple
 //        System.out.println("action.format() = " + action.format());
         final JSONObject event = makeEvent()
                 .put("type", "step")
-                .put("action", action.format());
+                .put("action", action.JSONFormat());
 
 
         final JSONObject response = sendWaitJSON(event);

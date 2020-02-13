@@ -1,14 +1,18 @@
 package tobi.gym;
 
 public class Discrete implements SpaceInstance {
-    private final int i;
+    private final int value;
 
-    public Discrete(int i) {
-        this.i = i;
+    public Discrete(int value) {
+        this.value = value;
     }
 
     @Override
-    public Object format() {
-        return i;
+    public Object JSONFormat() {
+        return value;
+    }
+
+    public int getValue() {
+        return value;
     }
 }

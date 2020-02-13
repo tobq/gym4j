@@ -12,7 +12,7 @@ public class Box implements SpaceInstance {
         this.values = values;
     }
 
-    public JSONArray format() {
+    public JSONArray JSONFormat() {
         JSONArray result = new JSONArray();
         for (double value : values) {
             result.put(value);

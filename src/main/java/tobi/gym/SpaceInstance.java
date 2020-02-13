@@ -1,5 +1,9 @@
 package tobi.gym;
 
 public interface SpaceInstance {
-    Object format();
+    /**
+     * Prepare to be added to a JSONObject
+     * @return serialisable object
+     */
+    Object JSONFormat();
 }
