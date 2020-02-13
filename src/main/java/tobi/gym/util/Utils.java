@@ -1,6 +1,6 @@
-package gym.util;
+package tobi.gym.util;
 
-import gym.Box;
+import tobi.gym.Box;
 import org.json.JSONArray;
 
 public class Utils {
@@ -36,6 +36,16 @@ public class Utils {
         });
         thread.start();
         return thread;
+    }
+
+    /**
+     * Parse big-endian integer bytes
+     *
+     * @param response big endian bytes
+     * @return corresponding integer
+     */
+    public static int parseInt(byte[] response) {
+        return ((response[0] & 0xFF) << 24) + ((response[1] & 0xFF) << 16) + ((response[2] & 0xFF) << 8) + (response[3] & 0xFF);
     }
 }
 

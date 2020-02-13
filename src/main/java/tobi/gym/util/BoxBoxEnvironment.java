@@ -1,17 +1,15 @@
-package gym.util;
+package tobi.gym.util;
 
-import gym.Box;
-import gym.BoxSpace;
-import gym.Environment;
-
-import java.io.IOException;
+import tobi.gym.Box;
+import tobi.gym.BoxSpace;
+import tobi.gym.Environment;
 
 public class BoxBoxEnvironment extends Environment<Box, Box> {
-    public BoxBoxEnvironment(String envId) throws IOException, InterruptedException {
+    public BoxBoxEnvironment(String envId) {
         super(envId);
     }
 
-    public BoxBoxEnvironment(String envId, boolean render) throws IOException, InterruptedException {
+    public BoxBoxEnvironment(String envId, boolean render) {
         super(envId, render);
     }
 

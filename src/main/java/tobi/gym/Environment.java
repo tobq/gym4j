@@ -1,19 +1,21 @@
-package gym;
+package tobi.gym;
 
-import gym.util.Utils;
+import tobi.gym.util.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.*;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class Environment<O extends Action, A extends Action> implements AutoCloseable {
+    private static final int DEFAULT_BUFFER_SIZE = 8192;
     private static BlockingQueue<Message> messageQueue = new LinkedBlockingQueue<>();
     private static HashMap<Integer, Callback<byte[]>> messageCallbacks = new HashMap<>();
     private static boolean initialised = false;
@@ -23,33 +25,47 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
     private Space<A> actionSpace;
     private Space<O> observationSpace;
 
-    public static void main(String[] args) throws InterruptedException, IOException, URISyntaxException {
+    public static void main(String[] args) throws InterruptedException, IOException {
         Environment.init();
-        final Environment<Box, Box> env = new Environment<>("BipedalWalker-v2", true);
-        System.out.println("env.reset() = " + env.reset());
-
-        for (int i = 0; i < 300; i++) {
-            System.out.println("env.step(new Box(1,1,1,1)) = " + env.step(new Box(1, 1, 1, 1)));
-        }
-
-        env.close();
+//        final Environment<Box, Box> env = new Environment<>("BipedalWalker-v2", true);
+//        System.out.println("env.reset() = " + env.reset());
+//
+//        for (int i = 0; i < 300; i++) {
+//            System.out.println("env.step(new Box(1,1,1,1)) = " + env.step(new Box(1, 1, 1, 1)));
+//        }
+//
+//        env.close();
     }
 
-    public synchronized static void init() throws IOException, URISyntaxException, InterruptedException {
+    public synchronized static void init() throws IOException, InterruptedException {
         if (initialised) return;
 
         final int THREAD_COUNT = 3;
-        final Thread[] threads = new Thread[THREAD_COUNT];
+//        final Thread[] threads = new Thread[THREAD_COUNT];
         final CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
-        File file = new File(Environment.class.getResource("/gym/shell.py").toURI());
-        ProcessBuilder builder = new ProcessBuilder("python", file.toString());
+        final File tempFile = Files.createTempFile("tobi.gym", Long.toString(System.currentTimeMillis())).toFile();
+
+        try (InputStream resourceStream = Environment.class.getResourceAsStream("/tobi/gym/shell.py")) {
+            try (FileOutputStream tempStream = new FileOutputStream(tempFile)) {
+                Objects.requireNonNull((OutputStream) tempStream, "out");
+                long transferred = 0;
+                byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+                int read;
+                while ((read = resourceStream.read(buffer, 0, DEFAULT_BUFFER_SIZE)) >= 0) {
+                    ((OutputStream) tempStream).write(buffer, 0, read);
+                    transferred += read;
+                }
+            }
+        }
+//        System.out.println("tempFile = " + tempFile);
+        ProcessBuilder builder = new ProcessBuilder("python", tempFile.toString());
         Process process = builder.start();
 
-        // WAITING THREAD (stops python continuing after this process closes)
         Runtime.getRuntime().addShutdownHook(new Thread(process::destroyForcibly));
 
         // RESPONSE READING THREAD
-        threads[0] = Utils.startLoggedThread(() -> {
+        /*threads[0] = */
+        Utils.startLoggedThread(() -> {
             final DataInputStream reader = new DataInputStream(process.getInputStream());
             latch.countDown();
             while (true) {
@@ -60,22 +76,25 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
                 final byte[] response = new byte[length];
 //                System.out.println("RESPONSE = " + Arrays.toString(response));
                 reader.readFully(response);
-                Utils.startLoggedThread(() -> messageCallbacks.get(mid).call(response));
+                final Callback<byte[]> callback = messageCallbacks.get(mid);
+                messageCallbacks.remove(mid);
+                Utils.startLoggedThread(() -> callback.call(response));
             }
         });
 
         // MESSAGE SENDING THREAD
-        threads[1] = Utils.startLoggedThread(() -> {
+        /*threads[1] = */
+        Utils.startLoggedThread(() -> {
             latch.countDown();
 
             final DataOutputStream writer = new DataOutputStream(process.getOutputStream());
             int messageCount = 0;
             while (true) {
-                final Message message;
-                message = messageQueue.take();
+                final Message message = messageQueue.take();
                 final byte[] msg = message.getMessage();
                 final int mid = messageCount++;
-                messageCallbacks.put(mid, message.getCallback());
+                if (message instanceof CallbackMessage)
+                    messageCallbacks.put(mid, ((CallbackMessage) message).getCallback());
                 writer.writeInt(mid);
                 writer.writeInt(msg.length);
                 writer.write(msg);
@@ -85,7 +104,8 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
         });
 
         // ERROR READING THREAD
-        threads[2] = Utils.startLoggedThread(() -> {
+        /*threads[2] = */
+        Utils.startLoggedThread(() -> {
             latch.countDown();
 
             final BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -99,62 +119,56 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
         initialised = true;
     }
 
-    public void fetchSpaces() throws IOException, InterruptedException {
-        JSONObject event = makeEvent().put("type", "shape");
-        final JSONObject response = sendWaitJSON(event);
-        actionSpace = Space.parse(response.getJSONObject("action"));
-        observationSpace = Space.parse(response.getJSONObject("observation"));
-    }
-
     private JSONObject makeEvent() {
         return new JSONObject().put("id", id);
     }
 
-    public Environment(String envId) throws IOException, InterruptedException {
+    public Environment(String envId) {
         this(envId, false);
     }
 
-    public Environment(String envId, boolean render) throws IOException, InterruptedException {
+    public Environment(String envId, boolean render) {
         JSONObject event = new JSONObject()
                 .put("type", "make")
                 .put("render", render)
                 .put("envId", envId);
 
         final byte[] response = sendWait(event.toString());
+//        System.out.println("response = " + Arrays.toString(response));
+        id = Utils.parseInt(response);
+//        System.out.println("id = " + id);
+        JSONObject event1 = makeEvent().put("type", "shape");
+        final JSONObject response1 = sendWaitJSON(event1);
 
-        // BIG-ENDIAN
-        this.id = (response[0] << 24) + (response[1] << 16) + (response[2] << 8) + response[3];
-        // System.out.println("id = " + this.id);
-        fetchSpaces();
+        actionSpace = Space.parse(response1.getJSONObject("action"));
+        observationSpace = Space.parse(response1.getJSONObject("observation"));
     }
 
-    private byte[] sendWait(String message) throws IOException, InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<byte[]> response = new AtomicReference<>();
-        send(
-                message,
-                res -> {
-                    response.set(res);
-                    latch.countDown();
-
-                });
-        latch.await();
-        return response.get();
+    private byte[] sendWait(String message) {
+        final CompletableFuture<byte[]> future = new CompletableFuture<>();
+        send(message, future::complete);
+        return future.join();
     }
 
-    private static void send(String message, Callback<byte[]> cb) throws IOException {
+    private static void send(String message, Callback<byte[]> cb) {
+        assertInitialised();
+        messageQueue.add(new CallbackMessage(message, cb));
+    }
+
+    private static void send(String message) {
+        assertInitialised();
+        messageQueue.add(new Message(message));
+    }
+
+    private static void assertInitialised() {
         if (!initialised) throw new RuntimeException("Environment not yet initialised. Call Environment#init()");
-        final ByteArrayOutputStream out = new ByteArrayOutputStream();
-        out.write(message.getBytes(StandardCharsets.UTF_8));
-        // TODO: UTIL TO UTF BYTES
-        out.close();
-        messageQueue.add(new Message(
-                out.toByteArray(),
-                cb
-        ));
     }
 
-    public ActionResult<O> step(A action) throws IOException, InterruptedException {
+    private static void send(JSONObject event) {
+        send(event.toString());
+    }
+
+    public ActionResult<O> step(A action) {
 //        System.out.println("action.format() = " + action.format());
         final JSONObject event = makeEvent()
                 .put("type", "step")
@@ -177,25 +191,25 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
         return (O) res;
     }
 
-    public O reset() throws IOException, InterruptedException {
+    public O reset() {
         final JSONObject event = makeEvent().put("type", "reset");
         final JSONObject response = sendWaitJSON(event);
         return extractObservation(response);
     }
 
-    private JSONObject sendWaitJSON(String message) throws IOException, InterruptedException {
+    private JSONObject sendWaitJSON(String message) {
         final byte[] recv = sendWait(message);
         return new JSONObject(new String(recv, StandardCharsets.UTF_8));
     }
 
-    private JSONObject sendWaitJSON(JSONObject event) throws IOException, InterruptedException {
+    private JSONObject sendWaitJSON(JSONObject event) {
         return sendWaitJSON(event.toString());
     }
 
     //
     @Override
-    public void close() throws IOException, InterruptedException {
-        sendWaitJSON(makeEvent().put("type", "close"));
+    public void close() {
+        send(makeEvent().put("type", "close"));
     }
 
     public Space<A> getActionSpace() {

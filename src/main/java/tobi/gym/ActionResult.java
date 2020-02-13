@@ -1,4 +1,4 @@
-package gym;
+package tobi.gym;
 
 public class ActionResult<O extends Action> {
     public static final String KEY_OBSERVATION = "observation";

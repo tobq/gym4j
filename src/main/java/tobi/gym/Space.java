@@ -1,6 +1,6 @@
-package gym;
+package tobi.gym;
 
-import gym.util.Utils;
+import tobi.gym.util.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 

@@ -1,4 +1,4 @@
-package gym;
+package tobi.gym;
 
 public class BoxSpace extends Space<Box> {
     private final int[] shape;

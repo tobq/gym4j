@@ -1,4 +1,4 @@
-package gym;
+package tobi.gym;
 
 public class DiscreteSpace extends Space<Discrete> {
     private final int size;

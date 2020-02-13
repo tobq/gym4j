@@ -1,11 +1,9 @@
-package gym.util;
+package tobi.gym.util;
 
-import gym.*;
-
-import java.io.IOException;
+import tobi.gym.*;
 
 public class BoxDiscreteEnvironment extends Environment<Box, Discrete> {
-    public BoxDiscreteEnvironment(String envId) throws IOException, InterruptedException {
+    public BoxDiscreteEnvironment(String envId) {
         super(envId);
     }
 

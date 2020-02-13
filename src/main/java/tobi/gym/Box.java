@@ -1,4 +1,4 @@
-package gym;
+package tobi.gym;
 
 import org.json.JSONArray;
 

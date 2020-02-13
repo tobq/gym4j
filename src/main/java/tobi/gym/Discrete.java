@@ -1,4 +1,4 @@
-package gym;
+package tobi.gym;
 
 public class Discrete implements Action {
     private final int i;

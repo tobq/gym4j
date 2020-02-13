@@ -1,5 +1,5 @@
 /*
-//package gym;
+//package tobi.gym;
 //
 //import org.junit.Test;
 //

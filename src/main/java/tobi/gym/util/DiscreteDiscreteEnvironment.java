@@ -1,13 +1,11 @@
-package gym.util;
+package tobi.gym.util;
 
-import gym.Discrete;
-import gym.DiscreteSpace;
-import gym.Environment;
-
-import java.io.IOException;
+import tobi.gym.Discrete;
+import tobi.gym.DiscreteSpace;
+import tobi.gym.Environment;
 
 public class DiscreteDiscreteEnvironment extends Environment<Discrete, Discrete> {
-    public DiscreteDiscreteEnvironment(String envId) throws IOException, InterruptedException {
+    public DiscreteDiscreteEnvironment(String envId) {
         super(envId);
     }
 
