@@ -5,8 +5,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.*;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
@@ -25,7 +27,7 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
     private Space<A> actionSpace;
     private Space<O> observationSpace;
 
-    public static void main(String[] args) throws InterruptedException, IOException {
+    public static void main(String[] args) throws InterruptedException, IOException, URISyntaxException {
         Environment.init();
 //        final Environment<Box, Box> env = new Environment<>("BipedalWalker-v2", true);
 //        System.out.println("env.reset() = " + env.reset());
@@ -37,28 +39,19 @@ public class Environment<O extends Action, A extends Action> implements AutoClos
 //        env.close();
     }
 
-    public synchronized static void init() throws IOException, InterruptedException {
+    public synchronized static void init() throws IOException, InterruptedException, URISyntaxException {
         if (initialised) return;
 
         final int THREAD_COUNT = 3;
 //        final Thread[] threads = new Thread[THREAD_COUNT];
         final CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
-        final File tempFile = Files.createTempFile("tobi.gym", Long.toString(System.currentTimeMillis())).toFile();
-
-        try (InputStream resourceStream = Environment.class.getResourceAsStream("/tobi/gym/shell.py")) {
-            try (FileOutputStream tempStream = new FileOutputStream(tempFile)) {
-                Objects.requireNonNull((OutputStream) tempStream, "out");
-                long transferred = 0;
-                byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-                int read;
-                while ((read = resourceStream.read(buffer, 0, DEFAULT_BUFFER_SIZE)) >= 0) {
-                    ((OutputStream) tempStream).write(buffer, 0, read);
-                    transferred += read;
-                }
-            }
-        }
+//        final Path tempFile = Files.createTempFile("tobi.gym-", Long.toString(System.currentTimeMillis())).toAbsolutePath();
+//
+//        try (InputStream resourceStream = Environment.class.getResourceAsStream("/tobi/gym/shell.py")) {
+//            Files.copy(resourceStream, tempFile);
+//        }
 //        System.out.println("tempFile = " + tempFile);
-        ProcessBuilder builder = new ProcessBuilder("python", tempFile.toString());
+        ProcessBuilder builder = new ProcessBuilder("python", Utils.installGym());
         Process process = builder.start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(process::destroyForcibly));
