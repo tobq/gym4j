@@ -8,9 +8,8 @@ import java.net.URL;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.*;
+import java.util.logging.Logger;
 
 public class Gym implements AutoCloseable {
     private static final int THREAD_COUNT = 3;
@@ -18,11 +17,11 @@ public class Gym implements AutoCloseable {
     private static final String GYM_PYTHON_FOLDER = "/tobi/gym/gympy/";
     private static final String SHELL_PY_REL_PATH = "shell.py";
     private static final String PYTHON_SHELL_PATH = GYM_PYTHON_FOLDER + SHELL_PY_REL_PATH;
+    private static final ExecutorService threadPool = Executors.newCachedThreadPool();
 
     private Runnable shutDownUninstall;
-    private Thread shutDownUninstallHook;
     private final Runnable shutDownDestroySubprocess;
-    private final Thread shutDownDestroySubprocessHook;
+    private final Thread shutdownHook;
     private final BlockingQueue<Message> messageQueue = new LinkedBlockingQueue<>();
     private final HashMap<Integer, Callback<byte[]>> messageCallbacks = new HashMap<>();
     private final CountDownLatch shutdownLatch = new CountDownLatch(THREAD_COUNT);
@@ -38,7 +37,6 @@ public class Gym implements AutoCloseable {
         Path currentRuntimeLocationPath = Paths.get(currentRuntimeLocation.toURI());
         // If this runtime is running from a jar, the python project is installed to a tempo folder
         pythonWasInstalled = currentRuntimeLocation.getPath().endsWith(".jar");
-        final Runtime runtime = Runtime.getRuntime();
         if (pythonWasInstalled) {
             // Explore the filesystem within this jar
             try (FileSystem jarFileSystem = FileSystems.newFileSystem(currentRuntimeLocationPath, (ClassLoader) null)) {
@@ -72,12 +70,6 @@ public class Gym implements AutoCloseable {
                     }
                 };
 
-                // The function is added as a shutdown hook.
-                // The actual function is also stored, so in case of a normal closure
-                // we can cancel the shut down hook and perform an early (synchronous) uninstall
-                shutDownUninstallHook = new Thread(shutDownUninstall);
-                runtime.addShutdownHook(shutDownUninstallHook);
-
                 pythonShellPath = tempInstallDir.resolve(SHELL_PY_REL_PATH).toString();
             }
         } else {
@@ -102,8 +94,16 @@ public class Gym implements AutoCloseable {
         // The actual function is also stored, so in case of a normal closure
         // we can cancel the shut down hook and perform an early (synchronous)
         // shutdown of the python subprocess
-        shutDownDestroySubprocessHook = new Thread(shutDownDestroySubprocess);
-        runtime.addShutdownHook(shutDownDestroySubprocessHook);
+        shutdownHook = new Thread(() -> {
+            try {
+//                System.out.println("Shut down hook called");
+                _close();
+//                System.out.println("Shut down hook finished");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         // This thread READS messages from the python subprocess
         Utils.startLoggedThread(() -> {
@@ -121,7 +121,7 @@ public class Gym implements AutoCloseable {
                 if (messageCallbacks.containsKey(mid)) {
                     final Callback<byte[]> callback = messageCallbacks.get(mid);
                     messageCallbacks.remove(mid);
-                    Utils.startLoggedThread(() -> callback.call(response));
+                    threadPool.execute(() -> callback.call(response));
                 }
             }
             shutdownLatch.countDown();
@@ -206,17 +206,21 @@ public class Gym implements AutoCloseable {
      */
     @Override
     public void close() throws InterruptedException {
+        // The shutdown hooks are removed
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        _close();
+    }
+
+    private void _close() throws InterruptedException {
+//        System.out.println("Close called");
         // running flag set to false, eventually shutting down all threads
         running = false;
-        final Runtime runtime = Runtime.getRuntime();
-        // The shutdown hooks are removed
-        runtime.removeShutdownHook(shutDownDestroySubprocessHook);
-        runtime.removeShutdownHook(shutDownUninstallHook);
-        // The shutdown functions are then synchronously run
-        if (pythonWasInstalled) shutDownUninstall.run();
-        shutDownDestroySubprocess.run();
         // This close method waits for the threads to finish
         shutdownLatch.await();
+        shutDownDestroySubprocess.run();
+        // The shutdown functions are then synchronously run
+        if (pythonWasInstalled) shutDownUninstall.run();
+//        System.out.println("Close finished");
     }
 
     //****************************************//
