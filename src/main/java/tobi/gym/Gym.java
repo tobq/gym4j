@@ -7,9 +7,11 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.*;
-import java.util.logging.Logger;
 
 public class Gym implements AutoCloseable {
     private static final int THREAD_COUNT = 3;
@@ -18,6 +20,7 @@ public class Gym implements AutoCloseable {
     private static final String SHELL_PY_REL_PATH = "shell.py";
     private static final String PYTHON_SHELL_PATH = GYM_PYTHON_FOLDER + SHELL_PY_REL_PATH;
     private static final ExecutorService threadPool = Executors.newCachedThreadPool();
+    private static final boolean THREADED_PYTHON_EXECUTION = false;
 
     private Runnable shutDownUninstall;
     private final Runnable shutDownDestroySubprocess;
@@ -78,7 +81,9 @@ public class Gym implements AutoCloseable {
         }
 
         // The python process is then initialised with the configured location of the project
-        ProcessBuilder builder = new ProcessBuilder("python", pythonShellPath);
+        final List<String> args = new ArrayList<>(Arrays.asList("python", pythonShellPath));
+        if (THREADED_PYTHON_EXECUTION) args.add("--threaded");
+        ProcessBuilder builder = new ProcessBuilder(args);
         process = builder.start();
 
         // This synchronously shuts down the python process
