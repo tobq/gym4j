@@ -1,18 +1,20 @@
 package tobi.gym;
 
+import java.util.concurrent.CompletableFuture;
+
 public class CallbackMessage extends Message {
-    private final Callback<byte[]> callback;
+    private final CompletableFuture<byte[]> callback;
 
-    public CallbackMessage(byte[] message, Callback<byte[]> callback) {
+    public CallbackMessage(byte[] message, CompletableFuture<byte[]> callback) {
         super(message);
         this.callback = callback;
     }
-    public CallbackMessage(String message, Callback<byte[]> callback) {
+    public CallbackMessage(String message, CompletableFuture<byte[]> callback) {
         super(message);
         this.callback = callback;
     }
 
-    public Callback<byte[]> getCallback() {
+    public CompletableFuture<byte[]> getCallback() {
         return callback;
     }
 }

@@ -41,11 +41,11 @@ public class Environment<O extends SpaceInstance, A extends SpaceInstance> imple
 
     private byte[] sendWait(String message) {
         final CompletableFuture<byte[]> future = new CompletableFuture<>();
-        send(message, future::complete);
+        send(message, future);
         return future.join();
     }
 
-    private void send(String message, Callback<byte[]> cb) {
+    private void send(String message, CompletableFuture<byte[]> cb) {
         gym.submit(new CallbackMessage(message, cb));
     }
 

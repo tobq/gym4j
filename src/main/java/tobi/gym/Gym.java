@@ -26,7 +26,7 @@ public class Gym implements AutoCloseable {
     private final Runnable shutDownDestroySubprocess;
     private final Thread shutdownHook;
     private final BlockingQueue<Message> messageQueue = new LinkedBlockingQueue<>();
-    private final HashMap<Integer, Callback<byte[]>> messageCallbacks = new HashMap<>();
+    private final HashMap<Integer, CompletableFuture<byte[]>> messageCallbacks = new HashMap<>();
     private final CountDownLatch shutdownLatch = new CountDownLatch(THREAD_COUNT);
     private volatile boolean running = true;
     private final Process process;
@@ -124,9 +124,9 @@ public class Gym implements AutoCloseable {
                 final byte[] response = new byte[length];
                 reader.readFully(response);
                 if (messageCallbacks.containsKey(mid)) {
-                    final Callback<byte[]> callback = messageCallbacks.get(mid);
+                    final CompletableFuture<byte[]> callback = messageCallbacks.get(mid);
                     messageCallbacks.remove(mid);
-                    threadPool.execute(() -> callback.call(response));
+                    threadPool.execute(() -> callback.complete(response));
                 }
             }
             shutdownLatch.countDown();
