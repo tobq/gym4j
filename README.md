@@ -1,7 +1,7 @@
 # gym4j
 Library for running Open AI gym in Java
 ---
-##Usage
+## Usage
 
 I've setup a variety of ways to create any environment for full flexibility 
 ```Java
