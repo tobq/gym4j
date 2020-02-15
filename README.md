@@ -2,6 +2,7 @@
 Library for running Open AI gym in Java
 ---
 ##Usage
+
 I've setup a variety of ways to create any environment for full flexibility 
 ```Java
 try (Gym gym = new Gym()) {
