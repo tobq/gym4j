@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 public class Gym implements AutoCloseable {
-    private static final int THREAD_COUNT = 3;
+    private static final int THREAD_COUNT = 2;
 
     private static final String GYM_PYTHON_FOLDER = "/tobi/gym/gympy/";
     private static final String SHELL_PY_REL_PATH = "shell.py";
@@ -25,15 +25,15 @@ public class Gym implements AutoCloseable {
     private Runnable shutDownUninstall;
     private final Runnable shutDownDestroySubprocess;
     private final Thread shutdownHook;
-    private final BlockingQueue<Message> messageQueue = new LinkedBlockingQueue<>();
     private final HashMap<Integer, CompletableFuture<byte[]>> messageCallbacks = new HashMap<>();
     private final CountDownLatch shutdownLatch = new CountDownLatch(THREAD_COUNT);
     private volatile boolean running = true;
     private final Process process;
     private final boolean pythonWasInstalled;
+    private final DataOutputStream writer;
 
     public Gym() throws IOException, InterruptedException, URISyntaxException {
-        // Latch used to lock instantiation until all threads are up and running
+        // Latch used to block instantiation until all threads are up and running
         final CountDownLatch startupLatch = new CountDownLatch(THREAD_COUNT);
         String pythonShellPath;
         URL currentRuntimeLocation = Environment.class.getProtectionDomain().getCodeSource().getLocation();
@@ -85,6 +85,7 @@ public class Gym implements AutoCloseable {
         if (THREADED_PYTHON_EXECUTION) args.add("--threaded");
         ProcessBuilder builder = new ProcessBuilder(args);
         process = builder.start();
+        writer = new DataOutputStream(process.getOutputStream());
 
         // This synchronously shuts down the python process
         shutDownDestroySubprocess = () -> {
@@ -123,32 +124,8 @@ public class Gym implements AutoCloseable {
                 while (reader.available() < length) if (!running) break out;
                 final byte[] response = new byte[length];
                 reader.readFully(response);
-                if (messageCallbacks.containsKey(mid)) {
-                    final CompletableFuture<byte[]> callback = messageCallbacks.get(mid);
-                    messageCallbacks.remove(mid);
-                    threadPool.execute(() -> callback.complete(response));
-                }
-            }
-            shutdownLatch.countDown();
-        });
-
-        // This thread SENDS messages to the python subprocess
-        Utils.startLoggedThread(() -> {
-            startupLatch.countDown();
-            final DataOutputStream writer = new DataOutputStream(process.getOutputStream());
-            int messageCount = 0;
-            while (running) {
-                while (!messageQueue.isEmpty()) {
-                    final Message message = messageQueue.remove();
-                    final byte[] msg = message.getMessage();
-                    final int mid = messageCount++;
-                    if (message instanceof CallbackMessage)
-                        messageCallbacks.put(mid, ((CallbackMessage) message).getCallback());
-                    writer.writeInt(mid);
-                    writer.writeInt(msg.length);
-                    writer.write(msg);
-                    writer.flush();
-                }
+                if (messageCallbacks.containsKey(mid))
+                    messageCallbacks.remove(mid).complete(response);
             }
             shutdownLatch.countDown();
         });
@@ -195,13 +172,41 @@ public class Gym implements AutoCloseable {
         });
     }
 
+    int messageCount = 0;
+    final Object incrementLock = new Object();
+    final Object writerLock = new Object();
+
     /**
      * Accepts messages to be sent to the python subprocess
      *
-     * @param message to be transmitted
+     * @param msg to be transmitted
      */
-    final void submit(Message message) {
-        messageQueue.add(message);
+    final void send(byte[] msg) throws IOException {
+        send(0, msg);
+    }
+
+    /**
+     * Accepts messages to be sent to the python subprocess
+     *
+     * @param mid
+     * @param msg to be transmitted
+     */
+    final void send(int mid, byte[] msg) throws IOException {
+        synchronized (writerLock) {
+            writer.writeInt(mid);
+            writer.writeInt(msg.length);
+            writer.write(msg);
+        }
+        writer.flush();
+    }
+
+    final void send(byte[] msg, CompletableFuture<byte[]> future) throws IOException {
+        int mid;
+        synchronized (incrementLock) {
+            mid = messageCount++;
+        }
+        send(mid, msg);
+        messageCallbacks.put(mid, future);
     }
 
     /**
@@ -222,7 +227,9 @@ public class Gym implements AutoCloseable {
         running = false;
         // This close method waits for the threads to finish
         shutdownLatch.await();
-        shutDownDestroySubprocess.run();
+        synchronized (writerLock) {
+            shutDownDestroySubprocess.run();
+        }
         // The shutdown functions are then synchronously run
         if (pythonWasInstalled) shutDownUninstall.run();
 //        System.out.println("Close finished");
@@ -240,23 +247,23 @@ public class Gym implements AutoCloseable {
         return new GymEnvironment(envId, render);
     }
 
-    public static Environment make(String envId, boolean render, Gym gym) {
+    public static Environment make(String envId, boolean render, Gym gym) throws IOException {
         return new Environment(envId, render, gym);
     }
 
-    public static Environment make(String envId, Gym gym) {
+    public static Environment make(String envId, Gym gym) throws IOException {
         return new Environment(envId, gym);
     }
 
-    public static BoxBoxEnvironment makeBoxBox(String envId, Gym gym) {
+    public static BoxBoxEnvironment makeBoxBox(String envId, Gym gym) throws IOException {
         return new BoxBoxEnvironment(envId, gym);
     }
 
-    public static BoxDiscreteEnvironment makeBoxDiscrete(String envId, Gym gym) {
+    public static BoxDiscreteEnvironment makeBoxDiscrete(String envId, Gym gym) throws IOException {
         return new BoxDiscreteEnvironment(envId, gym);
     }
 
-    public static DiscreteDiscreteEnvironment makeDiscreteDiscrete(String envId, Gym gym) {
+    public static DiscreteDiscreteEnvironment makeDiscreteDiscrete(String envId, Gym gym) throws IOException {
         return new DiscreteDiscreteEnvironment(envId, gym);
     }
 }

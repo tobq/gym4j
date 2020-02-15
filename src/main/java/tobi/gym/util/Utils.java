@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 
@@ -54,6 +55,10 @@ public class Utils {
      */
     public static int parseInt(byte[] response) {
         return ((response[0] & 0xFF) << 24) + ((response[1] & 0xFF) << 16) + ((response[2] & 0xFF) << 8) + (response[3] & 0xFF);
+    }
+
+    public static byte[] toUTF(String string) {
+        return string.getBytes(StandardCharsets.UTF_8);
     }
 }
 

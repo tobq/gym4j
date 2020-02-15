@@ -4,7 +4,9 @@ import tobi.gym.util.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 public class Environment<O extends SpaceInstance, A extends SpaceInstance> implements AutoCloseable {
@@ -17,11 +19,11 @@ public class Environment<O extends SpaceInstance, A extends SpaceInstance> imple
         return new JSONObject().put("id", id);
     }
 
-    public Environment(String envId, Gym gym) {
+    public Environment(String envId, Gym gym) throws IOException {
         this(envId, false, gym);
     }
 
-    public Environment(String envId, boolean render, Gym gym) {
+    public Environment(String envId, boolean render, Gym gym) throws IOException {
         this.gym = gym;
         JSONObject event = new JSONObject()
                 .put("type", "make")
@@ -39,29 +41,29 @@ public class Environment<O extends SpaceInstance, A extends SpaceInstance> imple
         observationSpace = Space.parse(response1.getJSONObject("observation"));
     }
 
-    private byte[] sendWait(String message) {
+    private byte[] sendWait(String message) throws IOException {
         final CompletableFuture<byte[]> future = new CompletableFuture<>();
         send(message, future);
         return future.join();
     }
 
-    private void send(String message, CompletableFuture<byte[]> cb) {
-        gym.submit(new CallbackMessage(message, cb));
+    private void send(String message, CompletableFuture<byte[]> cb) throws IOException {
+        gym.send(Utils.toUTF(message), cb);
     }
 
-    private void send(String message) {
-        gym.submit(new Message(message));
+    private void send(String message) throws IOException {
+        gym.send(Utils.toUTF(message));
     }
 
 //    private static void assertInitialised() {
 //        if (!initialised) throw new RuntimeException("Environment not yet initialised. Call Environment#init()");
 //    }
 
-    private void send(JSONObject event) {
+    private void send(JSONObject event) throws IOException {
         send(event.toString());
     }
 
-    public ActionResult<O> step(A action) {
+    public ActionResult<O> step(A action) throws IOException {
 //        System.out.println("action.format() = " + action.format());
         final JSONObject event = makeEvent()
                 .put("type", "step")
@@ -84,24 +86,24 @@ public class Environment<O extends SpaceInstance, A extends SpaceInstance> imple
         return (O) res;
     }
 
-    public O reset() {
+    public O reset() throws IOException {
         final JSONObject event = makeEvent().put("type", "reset");
         final JSONObject response = sendWaitJSON(event);
         return extractObservation(response);
     }
 
-    private JSONObject sendWaitJSON(String message) {
+    private JSONObject sendWaitJSON(String message) throws IOException {
         final byte[] recv = sendWait(message);
         return new JSONObject(new String(recv, StandardCharsets.UTF_8));
     }
 
-    private JSONObject sendWaitJSON(JSONObject event) {
+    private JSONObject sendWaitJSON(JSONObject event) throws IOException {
         return sendWaitJSON(event.toString());
     }
 
     //
     @Override
-    public void close() throws InterruptedException {
+    public void close() throws InterruptedException, IOException {
         send(makeEvent().put("type", "close"));
     }
 
