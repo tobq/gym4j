@@ -263,23 +263,28 @@ public class Gym implements AutoCloseable {
         return new BoxDiscreteEnvironment(envId, gym);
     }
 
+
+    public static DiscreteBoxEnvironment makeDiscreteBox(String envId, Gym gym) throws IOException {
+        return new DiscreteBoxEnvironment(envId, gym);
+    }
+
     public static DiscreteDiscreteEnvironment makeDiscreteDiscrete(String envId, Gym gym) throws IOException {
         return new DiscreteDiscreteEnvironment(envId, gym);
     }
 
     public BoxBoxEnvironment makeBoxBox(String envId) throws IOException {
-        return new BoxBoxEnvironment(envId, this);
+        return makeBoxBox(envId, this);
     }
 
     public BoxDiscreteEnvironment makeBoxDiscrete(String envId) throws IOException {
-        return new BoxDiscreteEnvironment(envId, this);
+        return makeBoxDiscrete(envId, this);
     }
 
     public DiscreteBoxEnvironment makeDiscreteBox(String envId) throws IOException {
-        return new DiscreteBoxEnvironment(envId, this);
+        return makeDiscreteBox(envId, this);
     }
 
     public DiscreteDiscreteEnvironment makeDiscreteDiscrete(String envId) throws IOException {
-        return new DiscreteDiscreteEnvironment(envId, this);
+        return makeDiscreteDiscrete(envId, this);
     }
 }
