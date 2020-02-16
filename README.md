@@ -7,9 +7,9 @@ Library for running Open AI gym in Java
 I've setup a variety of ways to create any environment for full flexibility 
 ```Java
 try (Gym gym = new Gym()) {
+//try (GymEnvironment<Box, Box> env = new GymEnvironment<Box,Box>("BipedalWalker-v2")) {
     try (BoxBoxEnvironment env = new BoxBoxEnvironment("BipedalWalker-v2", gym)) {
-//            try (GymEnvironment<Box, Box> env = new GymEnvironment<Box,Box>("BipedalWalker-v2")) {
-//            try (BoxBoxEnvironment env = gym.makeBoxBox("BipedalWalker-v2")) {
+//    try (BoxBoxEnvironment env = gym.makeBoxBox("BipedalWalker-v2")) {
         final BoxSpace actionSpace = (BoxSpace) env.getActionSpace();
         final BoxSpace observationSpace = (BoxSpace) env.getObservationSpace();
         final Box initialState = env.reset();
