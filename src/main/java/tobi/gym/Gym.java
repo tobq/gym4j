@@ -33,6 +33,10 @@ public class Gym implements AutoCloseable {
     private final DataOutputStream writer;
 
     public Gym() throws IOException, InterruptedException, URISyntaxException {
+        this("python");
+    }
+
+    public Gym(String pythonExecutable) throws IOException, InterruptedException, URISyntaxException {
         // Latch used to block instantiation until all threads are up and running
         final CountDownLatch startupLatch = new CountDownLatch(THREAD_COUNT);
         String pythonShellPath;
@@ -81,7 +85,7 @@ public class Gym implements AutoCloseable {
         }
 
         // The python process is then initialised with the configured location of the project
-        final List<String> args = new ArrayList<>(Arrays.asList("python", pythonShellPath));
+        final List<String> args = new ArrayList<>(Arrays.asList(pythonExecutable, pythonShellPath));
         if (THREADED_PYTHON_EXECUTION) args.add("--threaded");
         ProcessBuilder builder = new ProcessBuilder(args);
         process = builder.start();
