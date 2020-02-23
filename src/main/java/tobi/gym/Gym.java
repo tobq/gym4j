@@ -14,16 +14,22 @@ import java.util.List;
 import java.util.concurrent.*;
 
 public class Gym implements AutoCloseable {
-    private static final int THREAD_COUNT = 2;
+    private static final boolean LOG_PYTHON_ERRORS = true;
+    private static final int THREAD_COUNT;
+
+    static {
+        int threadCount = 1;
+        if (LOG_PYTHON_ERRORS) threadCount++;
+        THREAD_COUNT = threadCount;
+    }
 
     private static final String GYM_PYTHON_FOLDER = "/tobi/gym/gympy/";
     private static final String SHELL_PY_REL_PATH = "shell.py";
     private static final String PYTHON_SHELL_PATH = GYM_PYTHON_FOLDER + SHELL_PY_REL_PATH;
-    private static final ExecutorService threadPool = Executors.newCachedThreadPool();
     private static final boolean THREADED_PYTHON_EXECUTION = false;
 
-    private Runnable shutDownUninstall;
-    private final Runnable shutDownDestroySubprocess;
+    private Runnable shutdownUninstall;
+    private final Runnable shutdownDestroySubprocess;
     private final Thread shutdownHook;
     private final HashMap<Integer, CompletableFuture<byte[]>> messageCallbacks = new HashMap<>();
     private final CountDownLatch shutdownLatch = new CountDownLatch(THREAD_COUNT);
@@ -53,7 +59,7 @@ public class Gym implements AutoCloseable {
                 copyJarDir(pythonProjectInJar, pythonProjectInJar, tempInstallDir);
 
                 // A shutdown handler is configured to uninstall this temp python project
-                shutDownUninstall = () -> {
+                shutdownUninstall = () -> {
                     try {
                         // file tree of the temp install dir is walked, with everything being deleted on the way
                         Files.walkFileTree(tempInstallDir, new SimpleFileVisitor<Path>() {
@@ -92,7 +98,7 @@ public class Gym implements AutoCloseable {
         writer = new DataOutputStream(process.getOutputStream());
 
         // This synchronously shuts down the python process
-        shutDownDestroySubprocess = () -> {
+        shutdownDestroySubprocess = () -> {
             process.destroyForcibly();
             try {
                 process.waitFor();
@@ -128,24 +134,27 @@ public class Gym implements AutoCloseable {
                 while (reader.available() < length) if (!running) break out;
                 final byte[] response = new byte[length];
                 reader.readFully(response);
+//                System.out.println("RESPONSE " + mid + " - " + new String(response, "UTF-8"));
                 if (messageCallbacks.containsKey(mid))
                     messageCallbacks.remove(mid).complete(response);
             }
             shutdownLatch.countDown();
         });
 
-        // This thread OUTPUTS ERROR messages from the python subprocess
-        Utils.startLoggedThread(() -> {
-            startupLatch.countDown();
-            final BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            String line;
-            while (running) {
-                while (errorReader.ready() && (line = errorReader.readLine()) != null) {
-                    System.err.println(line);
+        if (LOG_PYTHON_ERRORS) {
+            // This thread OUTPUTS ERROR messages from the python subprocess
+            Utils.startLoggedThread(() -> {
+                startupLatch.countDown();
+                final BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+                String line;
+                while (running) {
+                    while (errorReader.ready() && (line = errorReader.readLine()) != null) {
+                        System.err.println(line);
+                    }
                 }
-            }
-            shutdownLatch.countDown();
-        });
+                shutdownLatch.countDown();
+            });
+        }
 
         // The latch waits for all threads to startup
         startupLatch.await();
@@ -232,10 +241,10 @@ public class Gym implements AutoCloseable {
         // This close method waits for the threads to finish
         shutdownLatch.await();
         synchronized (writerLock) {
-            shutDownDestroySubprocess.run();
+            shutdownDestroySubprocess.run();
         }
         // The shutdown functions are then synchronously run
-        if (pythonWasInstalled) shutDownUninstall.run();
+        if (pythonWasInstalled) shutdownUninstall.run();
 //        System.out.println("Close finished");
     }
 
