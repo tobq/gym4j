@@ -6,7 +6,6 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 public class Environment<O extends SpaceInstance, A extends SpaceInstance> implements AutoCloseable {
