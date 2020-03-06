@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Gym implements AutoCloseable {
     private static final boolean LOG_PYTHON_ERRORS = true;
@@ -185,8 +186,7 @@ public class Gym implements AutoCloseable {
         });
     }
 
-    int messageCount = 0;
-    final Object incrementLock = new Object();
+    final AtomicInteger messageCount = new AtomicInteger();
     final Object writerLock = new Object();
 
     /**
@@ -214,10 +214,7 @@ public class Gym implements AutoCloseable {
     }
 
     final void send(byte[] msg, CompletableFuture<byte[]> future) throws IOException {
-        int mid;
-        synchronized (incrementLock) {
-            mid = messageCount++;
-        }
+        int mid = messageCount.getAndIncrement();
         send(mid, msg);
         messageCallbacks.put(mid, future);
     }
