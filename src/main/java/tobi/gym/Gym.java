@@ -26,7 +26,7 @@ public class Gym implements AutoCloseable {
     private static final String GYM_PYTHON_FOLDER = "/tobi/gym/gympy/";
     private static final String SHELL_PY_REL_PATH = "shell.py";
     private static final String PYTHON_SHELL_PATH = GYM_PYTHON_FOLDER + SHELL_PY_REL_PATH;
-    private static final boolean THREADED_PYTHON_EXECUTION = false;
+    private static final boolean THREADED_PYTHON_EXECUTION = true;
 
     private Runnable shutdownUninstall;
     private final Runnable shutdownDestroySubprocess;
