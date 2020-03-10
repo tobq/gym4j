@@ -2,15 +2,8 @@ package tobi.gym.util;
 
 import tobi.gym.Box;
 import org.json.JSONArray;
-import tobi.gym.Environment;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
 
 public class Utils {
     public static Box parseBox(JSONArray ob) {
